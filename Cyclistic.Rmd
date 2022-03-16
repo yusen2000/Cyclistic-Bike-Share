@@ -1,0 +1,125 @@
+---
+title: "Cyclistic"
+author: "Yusen Lin"
+date: '2022-02-23'
+output: html_document
+---
+Initial setups 
+
+```{r message=FALSE}
+#Check working directory 
+
+getwd()
+```
+
+```{r message=FALSE}
+#install and load needed packages
+
+library(tidyverse)
+library(lubridate)
+library(skimr)
+library(janitor)
+library(dplyr)
+```
+
+
+
+Importing and cleaning data
+
+```{r message=FALSE}
+#import needed data
+
+jan2021<-read_csv("202101-divvy-tripdata.csv")
+feb2021<-read_csv("202102-divvy-tripdata.csv")
+mar2021<-read_csv("202103-divvy-tripdata.csv")
+apr2021<-read_csv("202104-divvy-tripdata.csv")
+may2021<-read_csv("202105-divvy-tripdata.csv")
+jun2021<-read_csv("202106-divvy-tripdata.csv")
+jul2021<-read_csv("202107-divvy-tripdata.csv")
+aug2021<-read_csv("202108-divvy-tripdata.csv")
+sep2021<-read_csv("202109-divvy-tripdata.csv")
+oct2021<-read_csv("202110-divvy-tripdata.csv")
+nov2021<-read_csv("202111-divvy-tripdata.csv")
+dec2021<-read_csv("202112-divvy-tripdata.csv")
+jan2022<-read_csv("202201-divvy-tripdata.csv")
+```
+
+```{R}
+#Compare number of column, column names and data types for consistency
+compare_df_cols(jan2021,feb2021,mar2021,apr2021,may2021,jun2021,jul2021,aug2021,sep2021,oct2021,nov2021,dec2021,jan2022, return="mismatch")
+```
+
+There no mismatched columns, the data is safe to be combined into one data frame for analysis
+
+```{R}
+#combine data frames 
+annal <- bind_rows(jan2021, feb2021, mar2021, apr2021, may2021, jun2021, jul2021, aug2021, sep2021, oct2021, nov2021, dec2021, jan2022)
+```
+
+Station lat and lng is not useful in this analysis, therefore it will be dropped. Moreover, there is not enough information available to determine why users use the service geologically wise, therefore it will be the main focus of this analysis. 
+
+
+```{R}
+#remove unnecessary columns
+annal <- annal %>% 
+  select(-c(end_station_name,end_station_id,start_lat,start_lng,end_lat,end_lng))
+#remove duplicated values 
+annal <- distinct(annal)
+```
+
+```{R}
+#get a quick overview of the dataframe and check for null values
+skim(annal)
+```
+
+
+There should be three different type of bike: electric bike, classic_bike and docked_bike, which correspond to 3 unique values of rideable_type column. Two unique customer segments: member, casual, which correspond to 2 unique values of member_casual column. 
+
+The data is ready for further analysis. 
+First, find the trip time for each trip. 
+
+```{R}
+#Find the trip time by finding the difference between end_time and start_time
+
+annal$trip_time <- difftime(annal$ended_at,annal$started_at)
+```
+
+
+Various trip have negative duration and duration of 0. They will be omitted as they are invalid and will skew the result.
+
+```{R}
+#remove bad data 
+annal_a <- annal[!(annal$trip_time <= 0),]
+```
+
+
+This reduced total row from 5698833 to 538175.
+
+```{R}
+#convert date to weekday
+annal_a$weekday <- weekdays(annal_a$started_at)
+```
+
+
+
+#Analyze
+
+Number of total ride and average trip duration between customer segments
+
+```{R}
+annal_a %>% 
+  group_by(member_casual) %>% 
+  summarise(number_of_rides = n(), total_trip_duration = sum(trip_time), average_duration = mean(trip_time))
+```
+Between bikes type and customer segments 
+
+```{R}
+annal_a %>% 
+  group_by(member_casual,rideable_type) %>% 
+  summarise(nunber_of_rides = n(),total_trip_duration = sum(trip_time),average_duation = mean(trip_time))
+```
+
+Exporting the data for visualization 
+```{R}
+write.csv(annal_a, "annal_ridership.csv")
+```
